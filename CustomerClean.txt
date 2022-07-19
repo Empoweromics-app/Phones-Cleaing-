@@ -1,0 +1,273 @@
+All function in power query
+let
+    // /*Loading Source Phone and mail Data*/
+    Source = Excel.CurrentWorkbook(){[Name="Table4"]}[Content]
+,
+    
+    // /*Automatic Query Type Change*/
+    #"Changed Type" = Table.TransformColumnTypes(Source,{{"Mobile1", type any}, {"Email1", type text}}),
+    // Removed unwanted extra Headers
+    #"Filtered Rows" = Table.SelectRows(#"Changed Type", each ([Mobile1] <> "موبيل")),
+    // /*Changed Mobile Column to type text*/
+    #"Changed Type1" = Table.TransformColumnTypes(#"Filtered Rows",{{"Mobile1", type text}}),
+    // /*Replaced all commas with / to unify the separators before doing splits*/
+    #"Replaced Value" = Table.ReplaceValue(#"Changed Type1",",","/",Replacer.ReplaceText,{"Mobile1"}),
+    // /*Function to remove Arabic or English names with phone numbers*/
+    #"Added Custom1" = Table.AddColumn(#"Replaced Value", "Phone holders", each Text.Select( [Mobile1], {"أ".. "ي","/"," ","-"}) & Text.Select( [Mobile1], {"A".."Z","a".."z","/"," ","-"})),
+    // /*Function to Select only numbers out of mobile1 column*/
+    #"Added Custom2" = Table.AddColumn(#"Added Custom1", "Numbers", each Text.Select( [Mobile1], {"0".."9","/","+","-"} )),
+    // /*Remove - and / from the beggining of the numbers*/
+    #"Added Custom3" = Table.AddColumn(#"Added Custom2", "Number_", each if Text.StartsWith([Numbers],"-" ) or Text.StartsWith([Numbers],"/" ) then 
+Text.ReplaceRange([Numbers],0,1,"") else [Numbers]),
+    // /*Remove - and / From the end of the numbers*/
+    #"Added Custom4" = Table.AddColumn(#"Added Custom3", "Custom", each if Text.EndsWith([Number_],"/")
+ then Text.Replace([Number_],"/","")
+else if Text.EndsWith([Number_],"-") 
+then Text.Replace([Number_],"-","")
+  else [Number_]),
+    // /*Changed latest phone numbers to text*/
+    #"Changed Type2" = Table.TransformColumnTypes(#"Added Custom4",{{"Custom", type text}}),
+    // /*Replaced Errors with nulls*/
+    #"Replaced Errors1" = Table.ReplaceErrorValues(#"Changed Type2", {{"Custom", null}}),
+    // /* Distinct Replace for / at the end of the number with nothing, Unique Occurence*/
+    #"Replaced Value1" = Table.ReplaceValue(#"Replaced Errors1","33385852/3","333858523",Replacer.ReplaceText,{"Custom"}),
+    // /*Function to know Position of each - in the numbers*/
+    #"Added Custom" = Table.AddColumn(#"Replaced Value1", "Custom.1", each Text.PositionOf([Custom],"-")),
+    // /*Replaced Errors With null*/
+    #"Replaced Errors" = Table.ReplaceErrorValues(#"Added Custom", {{"Custom.1", null}}),
+    // /*If Function to check if the - occur is < index 7 of the number then we remove it else it is not removed*/
+    #"Added Custom5" = Table.AddColumn(#"Replaced Errors", "Custom.2", each if [Custom.1] < 7 then Text.Remove([Custom],"-") else [Custom]),
+    #"Removed Errors" = Table.RemoveRowsWithErrors(#"Added Custom5", {"Custom.2"}),
+    // /*All the dashes left will be a separators between numbers so we will replace it with / */
+    #"Replaced Value2" = Table.ReplaceValue(#"Removed Errors","-","/",Replacer.ReplaceText,{"Custom.2"}),
+    // /*Renamed new column to Phone 1*/
+    #"Renamed Columns" = Table.RenameColumns(#"Replaced Value2",{{"Custom.2", "Phone1"}}),
+    // /*Splitted Phone column by / delemiter after removing all unneeded characters from numbers*/
+    #"Split Column by Delimiter" = Table.SplitColumn(#"Renamed Columns", "Phone1", Splitter.SplitTextByDelimiter("/", QuoteStyle.Csv), {"Phone1.1", "Phone1.2", "Phone1.3"}),
+    // /*Automatic Type Change*/
+    #"Changed Type3" = Table.TransformColumnTypes(#"Split Column by Delimiter",{{"Phone1.1", type number}, {"Phone1.2", Int64.Type}, {"Phone1.3", type text}}),
+    // /*Renamed Cloumns to Phone 1 ,2, 3*/
+    #"Renamed Columns1" = Table.RenameColumns(#"Changed Type3",{{"Phone1.1", "Phone1"}, {"Phone1.2", "Phone2"}, {"Phone1.3", "Phone3"}}),
+    // /*Changed Phone1 to tyoe Text*/
+    #"Changed Type4" = Table.TransformColumnTypes(#"Renamed Columns1",{{"Phone1", type text}}),
+    // /*Automatic Replace for a number to its correct form*/
+    #"Replaced Value6" = Table.ReplaceValue(#"Changed Type4","9900412973","99004129739",Replacer.ReplaceText,{"Phone1"}),
+    // /*Automatic Replace for a number to its correct form*/
+    #"Replaced Value7" = Table.ReplaceValue(#"Replaced Value6","39024","3902425",Replacer.ReplaceText,{"Phone1"}),
+    // /*Added First Phone unifying function to phone1*/
+    #"Added Custom6" = Table.AddColumn(#"Replaced Value7", "UnifiedPhone1", each if Text.StartsWith([Phone1],"10") then"+20" & [Phone1]
+else if Text.StartsWith([Phone1],"010")then"+2" & [Phone1]
+else if Text.StartsWith([Phone1],"11")then"+20" & [Phone1]
+else if Text.StartsWith([Phone1],"011")then"+2" & [Phone1]
+else if Text.StartsWith([Phone1],"12") then"+20" & [Phone1]
+else if Text.StartsWith([Phone1],"012")then"+2" & [Phone1]
+else if Text.StartsWith([Phone1],"015")then"+2" & [Phone1]
+else if Text.StartsWith([Phone1],"15") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"14") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"014") then "+2" & [Phone1]
+else if Text.StartsWith([Phone1],"016") then "+2" & [Phone1]
+else if Text.StartsWith([Phone1],"16") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"17") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"017") then "+2" & [Phone1]
+else if Text.StartsWith([Phone1],"19") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"019") then "+2" & [Phone1]
+else if Text.StartsWith([Phone1],"18") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"018") then "+2" & [Phone1]
+else if Text.StartsWith([Phone1],"2001") then "+" & Text.ReplaceRange([Phone1],0,3,"20")
+else if Text.StartsWith([Phone1],"2010") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"2011") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"2014") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"2015") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"2012") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"2016") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"2018") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"2019") then "+" & [Phone1]
+
+/* Emirates,Saudi Arabia,Qatar,Palestine*/
+else if Text.StartsWith([Phone1],"96") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"971") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"972") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"974") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"970") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"00") then Text.ReplaceRange([Phone1],0,2,"+")
+/* UK Numbers*/
+else if Text.StartsWith([Phone1],"44") then "+" & [Phone1]
+/*France and Spain*/
+else if Text.StartsWith([Phone1],"33")then"+" & [Phone1]
+else if Text.StartsWith([Phone1],"34")then"+" & [Phone1]
+else[Phone1]),
+    // /*Changed Phone2 to type Text*/
+    #"Changed Type5" = Table.TransformColumnTypes(#"Added Custom6",{{"Phone2", type text}, {"Phone3", type text}, {"UnifiedPhone1", type text}}),
+    // /*Replaced Nulls in phone2 to nothing to avoid errors*/
+    #"Replaced Value3" = Table.ReplaceValue(#"Changed Type5",null,"",Replacer.ReplaceValue,{"Phone2"}),
+    // /*Added Phone Unifying function to Phone2*/
+    #"Added Custom7" = Table.AddColumn(#"Replaced Value3", "UnifiedPhone2", each if Text.StartsWith([Phone2],"10") then"+20" & [Phone2]
+else if Text.StartsWith([Phone2],"010")then"+2" & [Phone2]
+else if Text.StartsWith([Phone2],"11")then"+20" & [Phone2]
+else if Text.StartsWith([Phone2],"011")then"+2" & [Phone2]
+else if Text.StartsWith([Phone2],"12") then"+20" & [Phone2]
+else if Text.StartsWith([Phone2],"012")then"+2" & [Phone2]
+else if Text.StartsWith([Phone2],"015")then"+2" & [Phone2]
+else if Text.StartsWith([Phone2],"15") then "+20" & [Phone2]
+else if Text.StartsWith([Phone2],"14") then "+20" & [Phone2]
+else if Text.StartsWith([Phone2],"014") then "+2" & [Phone2]
+else if Text.StartsWith([Phone2],"016") then "+2" & [Phone2]
+else if Text.StartsWith([Phone2],"16") then "+20" & [Phone2]
+else if Text.StartsWith([Phone2],"17") then "+20" & [Phone2]
+else if Text.StartsWith([Phone2],"017") then "+2" & [Phone2]
+else if Text.StartsWith([Phone2],"19") then "+20" & [Phone2]
+else if Text.StartsWith([Phone2],"019") then "+2" & [Phone2]
+else if Text.StartsWith([Phone2],"18") then "+20" & [Phone2]
+else if Text.StartsWith([Phone2],"018") then "+2" & [Phone2]
+else if Text.StartsWith([Phone2],"2001") then "+" & Text.ReplaceRange([Phone2],0,3,"20")
+else if Text.StartsWith([Phone2],"2010") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"2011") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"2014") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"2015") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"2012") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"2016") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"2018") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"2019") then "+" & [Phone2]
+
+/* Emirates,Saudi Arabia,Qatar,Palestine*/
+else if Text.StartsWith([Phone2],"96") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"971") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"972") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"974") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"970") then "+" & [Phone2]
+else if Text.StartsWith([Phone2],"00") then Text.ReplaceRange([Phone2],0,2,"+")
+/* UK Numbers*/
+else if Text.StartsWith([Phone2],"44") then "+" & [Phone2]
+/*France and Spain*/
+else if Text.StartsWith([Phone2],"33")then"+" & [Phone2]
+else if Text.StartsWith([Phone2],"34")then"+" & [Phone2]
+else[Phone2]),
+    // /*Replaced Errors with Nothing in phone2*/
+    #"Replaced Errors2" = Table.ReplaceErrorValues(#"Added Custom7", {{"UnifiedPhone2", ""}}),
+    // /*Replaced nulls with nothing in phone3 to avoid errros*/
+    #"Replaced Value4" = Table.ReplaceValue(#"Replaced Errors2",null,"",Replacer.ReplaceValue,{"Phone3"}),
+    // /*Added Phone unifying Function to phone3*/
+    #"Added Custom8" = Table.AddColumn(#"Replaced Value4", "UnifiedPhone3", each if Text.StartsWith([Phone3],"10") then"+20" & [Phone3]
+else if Text.StartsWith([Phone3],"010")then"+2" & [Phone3]
+else if Text.StartsWith([Phone3],"11")then"+20" & [Phone3]
+else if Text.StartsWith([Phone3],"011")then"+2" & [Phone3]
+else if Text.StartsWith([Phone3],"12") then"+20" & [Phone3]
+else if Text.StartsWith([Phone3],"012")then"+2" & [Phone3]
+else if Text.StartsWith([Phone3],"015")then"+2" & [Phone3]
+else if Text.StartsWith([Phone3],"15") then "+20" & [Phone3]
+else if Text.StartsWith([Phone3],"14") then "+20" & [Phone3]
+else if Text.StartsWith([Phone3],"014") then "+2" & [Phone3]
+else if Text.StartsWith([Phone3],"016") then "+2" & [Phone3]
+else if Text.StartsWith([Phone3],"16") then "+20" & [Phone3]
+else if Text.StartsWith([Phone3],"17") then "+20" & [Phone3]
+else if Text.StartsWith([Phone3],"017") then "+2" & [Phone3]
+else if Text.StartsWith([Phone3],"19") then "+20" & [Phone3]
+else if Text.StartsWith([Phone3],"019") then "+2" & [Phone3]
+else if Text.StartsWith([Phone3],"18") then "+20" & [Phone3]
+else if Text.StartsWith([Phone3],"018") then "+2" & [Phone3]
+else if Text.StartsWith([Phone3],"2001") then "+" & Text.ReplaceRange([Phone3],0,3,"20")
+else if Text.StartsWith([Phone3],"2010") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"2011") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"2014") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"2015") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"2012") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"2016") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"2018") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"2019") then "+" & [Phone3]
+
+/* Emirates,Saudi Arabia,Qatar,Palestine*/
+else if Text.StartsWith([Phone3],"96") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"971") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"972") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"974") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"970") then "+" & [Phone3]
+else if Text.StartsWith([Phone3],"00") then Text.ReplaceRange([Phone3],0,2,"+")
+/* UK Numbers*/
+else if Text.StartsWith([Phone3],"44") then "+" & [Phone3]
+/*France and Spain*/
+else if Text.StartsWith([Phone3],"33")then"+" & [Phone3]
+else if Text.StartsWith([Phone3],"34")then"+" & [Phone3]
+else[Phone3]),
+    // /*Replaced ,com in mails with .com*/
+    #"Replaced Value5" = Table.ReplaceValue(#"Added Custom8",",com",".com",Replacer.ReplaceText,{"Email1"}),
+    // /*Replaced N/A in mails with nothing*/
+    #"Replaced Value8" = Table.ReplaceValue(#"Replaced Value5","N/A","",Replacer.ReplaceText,{"Email1"}),
+    // /*Replaced n/A in mails with nothing*/
+    #"Replaced Value9" = Table.ReplaceValue(#"Replaced Value8","n/A","",Replacer.ReplaceText,{"Email1"}),
+    // /*Replaced N/L in mails with nothing*/
+    #"Replaced Value10" = Table.ReplaceValue(#"Replaced Value9","N/L","",Replacer.ReplaceText,{"Email1"}),
+    // /*Replaced N-A in mails with nothing*/
+    #"Replaced Value11" = Table.ReplaceValue(#"Replaced Value10","N-A","",Replacer.ReplaceText,{"Email1"}),
+    // /*Replaced one wrong mail to it's correct value*/
+    #"Replaced Value14" = Table.ReplaceValue(#"Replaced Value11","eltobguifz@bmw-eg.com & please add his assistant’s email : makhlouf@bmw-eg.com","eltobguifz@bmw-eg.com / makhlouf@bmw-eg.com",Replacer.ReplaceText,{"Email1"}),
+    // /*Splitted mails with / */
+    #"Split Column by Delimiter1" = Table.SplitColumn(#"Replaced Value14", "Email1", Splitter.SplitTextByDelimiter("/", QuoteStyle.Csv), {"Email1.1", "Email1.2"}),
+    // /*Automatic queryChange Type*/
+    #"Changed Type6" = Table.TransformColumnTypes(#"Split Column by Delimiter1",{{"Email1.1", type text}, {"Email1.2", type text}}),
+    // /*Replaced null with nothing*/
+    #"Replaced Value12" = Table.ReplaceValue(#"Changed Type6",null,"",Replacer.ReplaceValue,{"Email1.2"}),
+    // /*Replaced one mail to it's correct form unique occur*/
+    #"Replaced Value13" = Table.ReplaceValue(#"Replaced Value12"," his wife - jhassan@nileuniversity.edu.eg","jhassan@nileuniversity.edu.eg",Replacer.ReplaceText,{"Email1.2"}),
+    // /*Replaced null with nothing*/
+    #"Replaced Value15" = Table.ReplaceValue(#"Replaced Value13",null,"",Replacer.ReplaceValue,{"Phone1"}),
+    // /*Replaced errors with nothing*/
+    #"Replaced Errors3" = Table.ReplaceErrorValues(#"Replaced Value15", {{"UnifiedPhone1", ""}})
+in
+    #"Replaced Errors3"
+--------------------------------------------------------------------------
+Separated ready to use functions.
+-Regex for numbers only
+Text.Select( [Mobile1.1.1.1], {"0".."9"} )
+------------------------------------------------
+if Text.Contains(Text.End([#"Email1 - Copy"], 4),".") then "1" else "0"
+--------------------------------------------
+-Arabic names with spaces
+Text.Select( [Mobile1], {"أ".. "ي","/"," "})
+--------------------------------------------
+- Select only Arabic and english names
+Text.Select( [Mobile1], {"أ".. "ي","/"," ","-"}) & Text.Select( [Mobile1], {"A".."Z","a".."z","/"," ","-"})
+-----------------------------------------------------------------------------
+/*Egy phones unifying*/
+if Text.StartsWith([Phone1],"10") then"+20" & [Phone1]
+else if Text.StartsWith([Phone1],"010")then"+2" & [Phone1]
+else if Text.StartsWith([Phone1],"11")then"+20" & [Phone1]
+else if Text.StartsWith([Phone1],"011")then"+2" & [Phone1]
+else if Text.StartsWith([Phone1],"12") then"+20" & [Phone1]
+else if Text.StartsWith([Phone1],"012")then"+2" & [Phone1]
+else if Text.StartsWith([Phone1],"015")then"+2" & [Phone1]
+else if Text.StartsWith([Phone1],"15") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"14") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"014") then "+2" & [Phone1]
+else if Text.StartsWith([Phone1],"016") then "+2" & [Phone1]
+else if Text.StartsWith([Phone1],"16") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"17") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"017") then "+2" & [Phone1]
+else if Text.StartsWith([Phone1],"19") then "+20" & [Phone1]
+else if Text.StartsWith([Phone1],"019") then "+2" & [Phone1]
+else if Text.StartsWith([Phone1],"2010") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"2011") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"2015") then "+" & [Phone1]
+
+
+/* Emirates,Saudi Arabia,Qatar,Palestine*/
+else if Text.StartsWith([Phone1],"96") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"971") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"972") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"974") then "+" & [Phone1]
+else if Text.StartsWith([Phone1],"00") then Text.ReplaceRange([Phone1],0,2,"+")
+
+
+else [Phone1]
+-----------------------------------------------------------
+- To remove Spaces Just use text.replace and enter a space in the bar with nothing.
+---------------------------------------------------------------
+- Remove - and / from begging of numbers or text
+if Text.StartsWith([Numbers],"-" ) or Text.StartsWith([Numbers],"/" ) then 
+Text.ReplaceRange([Numbers],0,1,"") else [Numbers]
+---------------------------------------------------------------
+- Remove - and / from the end of number or text
+if Text.EndsWith([Number_],"/")
+ then Text.Replace([Number_],"/","")
+else if Text.EndsWith([Number_],"-") 
+then Text.Replace([Number_],"-","")
+  else [Number_]
